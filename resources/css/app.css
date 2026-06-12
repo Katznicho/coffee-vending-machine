@@ -1,0 +1,87 @@
+@import 'tailwindcss';
+
+@theme {
+  --color-brand: #971B23;
+  --color-brand-dark: #7a161c;
+
+  --color-primary-50: #fdf3f3;
+  --color-primary-100: #f9e4e5;
+  --color-primary-200: #f0c5c7;
+  --color-primary-300: #e08f93;
+  --color-primary-400: #c94a52;
+  --color-primary-500: #b52e37;
+  --color-primary-600: #971B23;
+  --color-primary-700: #871920;
+  --color-primary-800: #7a161c;
+  --color-primary-900: #651014;
+
+  --color-accent-50: #fafafa;
+  --color-accent-100: #f5f5f5;
+  --color-accent-200: #e5e5e5;
+  --color-accent-300: #d4d4d4;
+  --color-accent-400: #a3a3a3;
+  --color-accent-500: #737373;
+  --color-accent-600: #525252;
+  --color-accent-700: #404040;
+  --color-accent-800: #262626;
+  --color-accent-900: #171717;
+}
+
+/* Required by all components */
+@import '../../vendor/filament/support/resources/css/index.css';
+
+/* Required by actions and tables */
+@import '../../vendor/filament/actions/resources/css/index.css';
+
+/* Required by actions, forms and tables */
+@import '../../vendor/filament/forms/resources/css/index.css';
+
+/* Required by actions and infolists */
+@import '../../vendor/filament/infolists/resources/css/index.css';
+
+/* Required by notifications */
+@import '../../vendor/filament/notifications/resources/css/index.css';
+
+/* Required by actions, infolists, forms, schemas and tables */
+@import '../../vendor/filament/schemas/resources/css/index.css';
+
+/* Required by tables */
+@import '../../vendor/filament/tables/resources/css/index.css';
+
+/* Required by widgets */
+@import '../../vendor/filament/widgets/resources/css/index.css';
+
+@variant dark (&:where(.dark, .dark *));
+
+@layer components {
+    .app-card {
+        @apply rounded-xl bg-white p-6 shadow-sm;
+    }
+
+    .app-panel {
+        @apply overflow-hidden rounded-xl bg-white shadow-sm;
+    }
+}
+
+.fi-ta-ctn {
+    @apply rounded-none bg-transparent shadow-none ring-0;
+}
+
+.fi-ta-ctn .fi-ta-header,
+.fi-ta-ctn .fi-ta-header-toolbar,
+.fi-ta-ctn .fi-ta-empty-state,
+.fi-ta-ctn .fi-ta-footer-ctn {
+    @apply border-0;
+}
+
+.fi-ta-ctn .fi-ta-header-cell {
+    @apply border-0 bg-transparent;
+}
+
+.fi-ta-ctn .fi-ta-row {
+    @apply border-0;
+}
+
+.fi-ta-ctn .fi-ta-content {
+    @apply divide-y-0 border-0;
+}
