@@ -41,12 +41,14 @@ class DatabaseSeeder extends Seeder
 
         $settings = \App\Models\CellulantSetting::current();
 
-        if ($settings->sandbox_base_url === 'https://api-approval.tingg.africa') {
-            $settings->update([
-                'sandbox_base_url' => 'https://payments-instore.sandbox.tingg.africa',
-                'production_base_url' => $settings->production_base_url ?: 'https://payments.instore.tingg.africa',
-                'country_code' => 'UGA',
-            ]);
-        }
+        $settings->update([
+            'sandbox_base_url' => $settings->sandbox_base_url === 'https://api-approval.tingg.africa'
+                ? 'https://payments-instore.sandbox.tingg.africa'
+                : $settings->sandbox_base_url,
+            'production_base_url' => $settings->production_base_url ?: 'https://payments.instore.tingg.africa',
+            'country_code' => 'UGA',
+            'request_origin_code' => $settings->request_origin_code ?: 'TINGG_INSTORE_INTEGRATION',
+            'oauth_scope' => $settings->oauth_scope ?: 'read',
+        ]);
     }
 }

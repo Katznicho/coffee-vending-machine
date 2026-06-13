@@ -102,11 +102,11 @@ class CellulantSandboxTester
             $this->assertValidUgandaMsisdn($msisdn);
 
             $response = $client->instoreRequest('POST', $settings->initiate_payment_path, [
-                'counterCode' => $settings->activeCounterCode(),
                 'msisdn' => $msisdn,
                 'amount' => $testAmount,
+                'counterCode' => (string) $settings->activeCounterCode(),
                 'payerClientCode' => $payerClientCode,
-                'reference' => 'SANDBOX-TEST-'.now()->format('YmdHis'),
+                'reference' => null,
             ]);
 
             $body = $response->json() ?? [];

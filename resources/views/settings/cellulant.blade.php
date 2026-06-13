@@ -172,6 +172,14 @@
                         <label class="mb-1 block text-sm font-medium text-gray-700">Currency code</label>
                         <input type="text" name="currency_code" value="{{ old('currency_code', $settings->currency_code) }}" placeholder="UGX" maxlength="3" class="w-full rounded-lg border px-3 py-2 font-mono uppercase">
                     </div>
+                    <div>
+                        <label class="mb-1 block text-sm font-medium text-gray-700">Request origin</label>
+                        <input type="text" name="request_origin_code" value="{{ old('request_origin_code', $settings->request_origin_code ?? 'TINGG_INSTORE_INTEGRATION') }}" placeholder="TINGG_INSTORE_INTEGRATION" class="w-full rounded-lg border px-3 py-2 font-mono text-sm">
+                    </div>
+                    <div>
+                        <label class="mb-1 block text-sm font-medium text-gray-700">OAuth scope</label>
+                        <input type="text" name="oauth_scope" value="{{ old('oauth_scope', $settings->oauth_scope ?? 'read') }}" placeholder="read" class="w-full rounded-lg border px-3 py-2 font-mono text-sm">
+                    </div>
                     <div class="flex items-end">
                         <label class="flex items-center gap-2 text-sm text-gray-700">
                             <input type="checkbox" name="auto_detect_payer" value="1" @checked(old('auto_detect_payer', $settings->auto_detect_payer)) class="rounded border-gray-300">

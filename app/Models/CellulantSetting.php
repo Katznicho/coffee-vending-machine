@@ -24,6 +24,8 @@ class CellulantSetting extends Model
         'auto_detect_payer',
         'country_code',
         'currency_code',
+        'request_origin_code',
+        'oauth_scope',
         'is_active',
     ];
 
@@ -57,6 +59,8 @@ class CellulantSetting extends Model
             'auto_detect_payer' => true,
             'country_code' => 'UGA',
             'currency_code' => 'UGX',
+            'request_origin_code' => 'TINGG_INSTORE_INTEGRATION',
+            'oauth_scope' => 'read',
             'is_active' => true,
         ];
     }

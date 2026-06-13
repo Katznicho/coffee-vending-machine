@@ -29,9 +29,9 @@ class CellulantProvider implements PaymentProviderInterface
         ]);
 
         $payload = [
-            'counterCode' => $settings->activeCounterCode(),
             'msisdn' => $msisdn,
             'amount' => (int) $order->amount,
+            'counterCode' => (string) $settings->activeCounterCode(),
             'payerClientCode' => $payment->provider,
             'reference' => $reference,
         ];

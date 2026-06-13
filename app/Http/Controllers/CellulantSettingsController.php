@@ -41,6 +41,8 @@ class CellulantSettingsController extends Controller
             'auto_detect_payer' => 'nullable|boolean',
             'country_code' => 'required|string|max:3',
             'currency_code' => 'required|string|max:3',
+            'request_origin_code' => 'required|string|max:100',
+            'oauth_scope' => 'required|string|max:50',
             'is_active' => 'nullable|boolean',
         ]);
 
@@ -60,6 +62,8 @@ class CellulantSettingsController extends Controller
             'auto_detect_payer' => $request->boolean('auto_detect_payer'),
             'country_code' => strtoupper($validated['country_code']),
             'currency_code' => strtoupper($validated['currency_code']),
+            'request_origin_code' => $validated['request_origin_code'],
+            'oauth_scope' => $validated['oauth_scope'],
             'is_active' => $request->boolean('is_active'),
         ]);
 
