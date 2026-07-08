@@ -20,10 +20,10 @@
                     <p class="font-medium text-gray-900">Payment flow</p>
                     <ol class="mt-2 list-decimal space-y-1 pl-5 text-gray-700">
                         <li>Customer selects a product and enters a phone number on the machine.</li>
-                        <li>Machine calls <strong>Create order</strong> — middleware initiates Cellulant and returns <code class="rounded bg-white px-1">PENDING</code>.</li>
+                        <li>Machine calls <strong>Create order</strong> — middleware initiates Cellulant and returns <code class="rounded bg-white px-1">PENDING</code>. If the same order is submitted again, middleware checks Cellulant status before responding.</li>
                         <li>Customer approves the Mobile Money prompt on their phone.</li>
                         <li>Cellulant notifies middleware via IPN (no machine action required).</li>
-                        <li>Machine polls <strong>Payment status</strong> until <code class="rounded bg-white px-1">paid: true</code>.</li>
+                        <li>Machine polls <strong>Payment status</strong> until <code class="rounded bg-white px-1">paid: true</code>. If IPN is delayed, middleware falls back to Cellulant payment status APIs.</li>
                         <li>Machine dispenses the product, then calls <strong>Dispense result</strong>.</li>
                     </ol>
                     <div class="mt-4">
@@ -66,9 +66,10 @@
 }',
                             'response' => '{
   "status": "PENDING",
-  "transactionId": "ORD123"
+  "transactionId": "ORD123",
+  "paid": false
 }',
-                            'extra' => null,
+                            'extra' => 'Duplicate requests for the same orderId check Cellulant status and may return PAID if payment completed.',
                         ],
                         [
                             'title' => 'Payment status',

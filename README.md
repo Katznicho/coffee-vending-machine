@@ -40,6 +40,22 @@ npm run build
 php artisan serve
 ```
 
+### Scheduler (production)
+
+Pending payments are synced with Cellulant every minute as a backup when IPN or machine polling is delayed:
+
+```bash
+php artisan payments:sync-pending
+```
+
+Add this cron entry on the server so Laravel's scheduler runs:
+
+```cron
+* * * * * cd /path/to/VendorMachine && php artisan schedule:run >> /dev/null 2>&1
+```
+
+Tune with `VENDING_SYNC_PENDING_PAYMENTS`, `VENDING_SYNC_PENDING_BATCH_SIZE`, and `VENDING_SYNC_PENDING_SCHEDULE` (`everyMinute`, `everyFiveMinutes`, `everyTenMinutes`).
+
 Admin: `admin@vendormachine.test` / `password`
 
 ## Frontend assets (Vite)

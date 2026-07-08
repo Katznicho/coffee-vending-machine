@@ -4,12 +4,13 @@ namespace App\Http\Controllers\Vending;
 
 use App\Http\Controllers\Controller;
 use App\Models\Order;
+use App\Services\PaymentProviders\PaymentProviderInterface;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
 class PaymentStatusController extends Controller
 {
-    public function __invoke(Request $request): JsonResponse
+    public function __invoke(Request $request, PaymentProviderInterface $paymentProvider): JsonResponse
     {
         $transactionId = $request->input('transactionId')
             ?? $request->input('orderid')
@@ -31,6 +32,10 @@ class PaymentStatusController extends Controller
         }
 
         $order->markExpiredIfNeeded();
+
+        if ($order->payment_status === 'pending') {
+            $order = $paymentProvider->syncPendingPaymentStatus($order);
+        }
 
         if ($request->filled('ver')) {
             return response()->json([

@@ -15,6 +15,7 @@ return Application::configure(basePath: dirname(__DIR__))
         $middleware->alias([
             'machine.verify' => \App\Http\Middleware\VerifyMachineRequest::class,
             'admin' => \App\Http\Middleware\EnsureAdmin::class,
+            'vending.log' => \App\Http\Middleware\LogVendingApiRequest::class,
         ]);
     })
     ->withExceptions(function (Exceptions $exceptions): void {

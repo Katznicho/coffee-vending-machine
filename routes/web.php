@@ -1,8 +1,10 @@
 <?php
 
 use App\Http\Controllers\AuthController;
+use App\Http\Controllers\CellulantIpnLogController;
 use App\Http\Controllers\CellulantSettingsController;
 use App\Http\Controllers\DashboardController;
+use App\Http\Controllers\IntegrationLogController;
 use App\Http\Controllers\MachineController;
 use App\Http\Controllers\MachineIntegrationController;
 use App\Http\Controllers\OrderController;
@@ -30,7 +32,16 @@ Route::middleware(['auth', 'admin'])->group(function () {
     Route::put('/machines/{machine}', [MachineController::class, 'update'])->name('machines.update');
 
     Route::get('/orders', [OrderController::class, 'index'])->name('orders.index');
+    Route::get('/orders/create', [OrderController::class, 'create'])->name('orders.create');
+    Route::post('/orders', [OrderController::class, 'store'])->name('orders.store');
     Route::get('/orders/{order}', [OrderController::class, 'show'])->name('orders.show');
+    Route::post('/orders/{order}/check-status', [OrderController::class, 'checkStatus'])->name('orders.check-status');
+
+    Route::get('/ipn-logs', [CellulantIpnLogController::class, 'index'])->name('ipn-logs.index');
+    Route::get('/ipn-logs/{ipnLog}', [CellulantIpnLogController::class, 'show'])->name('ipn-logs.show');
+
+    Route::get('/integration-logs', [IntegrationLogController::class, 'index'])->name('integration-logs.index');
+    Route::get('/integration-logs/{integrationLog}', [IntegrationLogController::class, 'show'])->name('integration-logs.show');
 
     Route::get('/settings/cellulant', [CellulantSettingsController::class, 'edit'])->name('settings.cellulant.edit');
     Route::put('/settings/cellulant', [CellulantSettingsController::class, 'update'])->name('settings.cellulant.update');

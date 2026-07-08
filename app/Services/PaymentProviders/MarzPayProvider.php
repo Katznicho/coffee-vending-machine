@@ -143,6 +143,16 @@ class MarzPayProvider implements PaymentProviderInterface
         }
     }
 
+    public function syncPendingPaymentStatus(Order $order): Order
+    {
+        return $order;
+    }
+
+    public function refreshPaymentStatus(Order $order): Order
+    {
+        return $order;
+    }
+
     protected function credentials(): string
     {
         return base64_encode(

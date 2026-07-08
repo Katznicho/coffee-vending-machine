@@ -24,6 +24,12 @@
                 <a href="{{ route('settings.cellulant.edit') }}" class="block rounded-lg px-3 py-2 text-sm font-medium {{ request()->routeIs('settings.cellulant.*') ? 'bg-white/20' : 'hover:bg-white/10' }}">
                     Cellulant
                 </a>
+                <a href="{{ route('ipn-logs.index') }}" class="block rounded-lg py-2 pl-6 pr-3 text-sm font-medium {{ request()->routeIs('ipn-logs.*') ? 'bg-white/20' : 'hover:bg-white/10' }}">
+                    IPN logs
+                </a>
+                <a href="{{ route('integration-logs.index') }}" class="block rounded-lg py-2 pl-6 pr-3 text-sm font-medium {{ request()->routeIs('integration-logs.*') ? 'bg-white/20' : 'hover:bg-white/10' }}">
+                    API logs
+                </a>
             </nav>
 
             <form method="POST" action="{{ route('logout') }}" class="mt-8">

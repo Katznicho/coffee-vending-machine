@@ -1,5 +1,17 @@
 <x-app-layout>
     <x-dashboard-layout title="Order {{ $order->third_party_order_id }}">
+        <div class="mb-4 flex flex-wrap items-center gap-3">
+            @if(in_array($order->payment_status, ['pending', 'failed'], true))
+                <form method="POST" action="{{ route('orders.check-status', $order) }}">
+                    @csrf
+                    <button type="submit" class="rounded-lg bg-brand px-4 py-2 text-sm font-medium text-white hover:bg-brand/90">
+                        Check status with Cellulant
+                    </button>
+                </form>
+            @endif
+            <p class="text-sm text-gray-500">Queries Cellulant payment status when IPN was delayed or missed.</p>
+        </div>
+
         <div class="grid gap-6 lg:grid-cols-2">
             <div class="app-card">
                 <h2 class="mb-4 text-lg font-semibold">Order details</h2>
@@ -23,6 +35,9 @@
                         <p><span class="text-gray-500">Reference:</span> <span class="font-mono">{{ $payment->reference }}</span></p>
                         <p class="mt-1"><span class="text-gray-500">Status:</span> {{ ucfirst($payment->status) }}</p>
                         <p class="mt-1"><span class="text-gray-500">Provider:</span> {{ $payment->provider ?? '—' }}</p>
+                        @if($payment->transaction_id)
+                            <p class="mt-1"><span class="text-gray-500">Merchant txn:</span> <span class="font-mono">{{ $payment->transaction_id }}</span></p>
+                        @endif
                     </div>
                 @empty
                     <p class="text-sm text-gray-500">No payment attempts yet.</p>

@@ -7,7 +7,7 @@ use App\Http\Controllers\Vending\DispenseResultController;
 use App\Http\Controllers\Vending\PaymentStatusController;
 use Illuminate\Support\Facades\Route;
 
-Route::prefix('vending')->group(function () {
+Route::prefix('vending')->middleware('vending.log')->group(function () {
     Route::post('/create-order', CreateOrderController::class)->middleware('machine.verify');
     Route::post('/payment-status', PaymentStatusController::class);
     Route::post('/dispense-result', DispenseResultController::class);

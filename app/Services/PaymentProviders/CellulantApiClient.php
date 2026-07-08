@@ -3,6 +3,7 @@
 namespace App\Services\PaymentProviders;
 
 use App\Models\CellulantSetting;
+use App\Support\IntegrationLogger;
 use Illuminate\Http\Client\Response;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Http;
@@ -51,40 +52,69 @@ class CellulantApiClient
             $scope,
         );
 
-        return Cache::remember($cacheKey, 3500, function () use ($username, $password, $scope) {
-            $response = Http::asForm()->post($this->oauthTokenUrl(), [
+        if (Cache::has($cacheKey)) {
+            return Cache::get($cacheKey);
+        }
+
+        $startedAt = microtime(true);
+        $url = $this->oauthTokenUrl();
+
+        $response = Http::asForm()->post($url, [
+            'grant_type' => 'password',
+            'client_id' => 'payments',
+            'username' => $username,
+            'password' => $password,
+            'scope' => $scope,
+        ]);
+
+        $body = $response->json() ?? [];
+
+        IntegrationLogger::log([
+            'direction' => 'outbound',
+            'channel' => 'cellulant_api',
+            'event' => 'oauth_token',
+            'http_method' => 'POST',
+            'url' => $url,
+            'http_status' => $response->status(),
+            'success' => $response->successful() && filled(data_get($body, 'access_token')),
+            'duration_ms' => (int) round((microtime(true) - $startedAt) * 1000),
+            'message' => data_get($body, 'error_description') ?? data_get($body, 'message'),
+            'request_payload' => [
                 'grant_type' => 'password',
                 'client_id' => 'payments',
                 'username' => $username,
-                'password' => $password,
                 'scope' => $scope,
-            ]);
+            ],
+            'response_payload' => $body,
+        ]);
 
-            if (! $response->successful()) {
-                $message = data_get($response->json(), 'error_description')
-                    ?? data_get($response->json(), 'message')
-                    ?? $response->body();
+        if (! $response->successful()) {
+            $message = data_get($body, 'error_description')
+                ?? data_get($body, 'message')
+                ?? $response->body();
 
-                throw new RuntimeException('OAuth failed: '.$message);
-            }
+            throw new RuntimeException('OAuth failed: '.$message);
+        }
 
-            $token = $response->json('access_token');
+        $token = $response->json('access_token');
 
-            if (! $token) {
-                throw new RuntimeException('OAuth response did not include an access token.');
-            }
+        if (! $token) {
+            throw new RuntimeException('OAuth response did not include an access token.');
+        }
 
-            return $token;
-        });
+        Cache::put($cacheKey, $token, 3500);
+
+        return $token;
     }
 
-    public function instoreRequest(string $method, string $path, array $data = []): Response
+    public function instoreRequest(string $method, string $path, array $data = [], ?array $context = []): Response
     {
         return $this->authorizedRequest(
             $method,
             rtrim($this->settings->activeBaseUrl(), '/').'/'.ltrim($path, '/'),
             $data,
             includePaymentHeaders: true,
+            context: $context,
         );
     }
 
@@ -103,7 +133,9 @@ class CellulantApiClient
         string $url,
         array $data = [],
         bool $includePaymentHeaders = false,
+        array $context = [],
     ): Response {
+        $startedAt = microtime(true);
         $headers = [
             'X-Country-Code' => strtoupper((string) $this->settings->country_code),
         ];
@@ -117,11 +149,34 @@ class CellulantApiClient
             ->acceptJson()
             ->withHeaders($headers);
 
-        return match (strtoupper($method)) {
+        $response = match (strtoupper($method)) {
             'GET' => $request->get($url, $data),
             'POST' => $request->asJson()->post($url, $data),
             'PUT' => $request->asJson()->put($url, $data),
             default => throw new RuntimeException("Unsupported HTTP method: {$method}"),
         };
+
+        $body = $response->json() ?? [];
+
+        IntegrationLogger::log([
+            'direction' => 'outbound',
+            'channel' => 'cellulant_api',
+            'event' => $context['event'] ?? IntegrationLogger::cellulantEventFromUrl($url, $method),
+            'order_id' => $context['order_id'] ?? null,
+            'merchant_transaction_id' => filled($context['merchant_transaction_id'] ?? null)
+                ? (string) $context['merchant_transaction_id']
+                : (filled(data_get($body, 'data.merchantTransactionID')) ? (string) data_get($body, 'data.merchantTransactionID') : null),
+            'reference' => $context['reference'] ?? data_get($data, 'reference'),
+            'http_method' => strtoupper($method),
+            'url' => $url,
+            'http_status' => $response->status(),
+            'success' => $response->successful() && data_get($body, 'success') !== false,
+            'duration_ms' => (int) round((microtime(true) - $startedAt) * 1000),
+            'message' => data_get($body, 'message') ?? data_get($body, 'statusDescription'),
+            'request_payload' => strtoupper($method) === 'GET' ? $data : $data,
+            'response_payload' => $body !== [] ? $body : ['raw' => substr($response->body(), 0, 2000)],
+        ]);
+
+        return $response;
     }
 }

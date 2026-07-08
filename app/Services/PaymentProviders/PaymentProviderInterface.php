@@ -12,4 +12,8 @@ interface PaymentProviderInterface
     public function refund(Order $order): bool;
 
     public function handleWebhook(array $payload): void;
+
+    public function syncPendingPaymentStatus(Order $order): Order;
+
+    public function refreshPaymentStatus(Order $order): Order;
 }

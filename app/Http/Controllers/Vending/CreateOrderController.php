@@ -34,7 +34,9 @@ class CreateOrderController extends Controller
             ->first();
 
         if ($existing) {
-            return $this->pendingResponse($existing);
+            $existing = $paymentProvider->syncPendingPaymentStatus($existing);
+
+            return $this->orderResponse($existing);
         }
 
         $order = Order::create([
@@ -61,7 +63,7 @@ class CreateOrderController extends Controller
             ], 422);
         }
 
-        return $this->pendingResponse($order);
+        return $this->orderResponse($order);
     }
 
     protected function normalizePayload(Request $request): array
@@ -88,11 +90,31 @@ class CreateOrderController extends Controller
         ];
     }
 
-    protected function pendingResponse(Order $order): JsonResponse
+    protected function orderResponse(Order $order): JsonResponse
     {
-        return response()->json([
-            'status' => 'PENDING',
-            'transactionId' => $order->machine_order_id,
-        ]);
+        $order->markExpiredIfNeeded();
+
+        return match ($order->payment_status) {
+            'paid' => response()->json([
+                'status' => 'PAID',
+                'transactionId' => $order->machine_order_id,
+                'paid' => true,
+            ]),
+            'failed' => response()->json([
+                'status' => 'FAILED',
+                'transactionId' => $order->machine_order_id,
+                'paid' => false,
+            ]),
+            'expired' => response()->json([
+                'status' => 'EXPIRED',
+                'transactionId' => $order->machine_order_id,
+                'paid' => false,
+            ]),
+            default => response()->json([
+                'status' => 'PENDING',
+                'transactionId' => $order->machine_order_id,
+                'paid' => false,
+            ]),
+        };
     }
 }

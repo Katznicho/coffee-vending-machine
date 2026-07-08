@@ -68,12 +68,31 @@
                     </p>
                     <ul class="mt-3 space-y-1.5 text-sm">
                         @foreach($testResults['steps'] ?? [] as $step)
-                            <li class="flex gap-2 {{ ($step['passed'] ?? false) ? 'text-green-800' : 'text-red-800' }}">
-                                <span class="font-mono">{{ ($step['passed'] ?? false) ? '✓' : '✗' }}</span>
-                                <span>
-                                    <span class="font-medium text-gray-900">{{ $step['name'] }}</span>
-                                    — {{ $step['message'] }}
-                                </span>
+                            <li class="{{ ($step['passed'] ?? false) ? 'text-green-800' : 'text-red-800' }}">
+                                <div class="flex gap-2">
+                                    <span class="font-mono">{{ ($step['passed'] ?? false) ? '✓' : '✗' }}</span>
+                                    <span>
+                                        <span class="font-medium text-gray-900">{{ $step['name'] }}</span>
+                                        — {{ $step['message'] }}
+                                    </span>
+                                </div>
+                                @if(! ($step['passed'] ?? false) && ! empty($step['details']))
+                                    <dl class="mt-1.5 space-y-1 pl-6 text-xs text-gray-600">
+                                        @foreach($step['details'] as $key => $value)
+                                            @if($key === 'response')
+                                                <div>
+                                                    <dt class="font-medium text-gray-700">Cellulant response</dt>
+                                                    <dd class="mt-1 overflow-x-auto rounded bg-gray-900 p-2 font-mono text-[11px] leading-relaxed text-green-100">{{ json_encode($value, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES) }}</dd>
+                                                </div>
+                                            @else
+                                                <div class="flex gap-2">
+                                                    <dt class="font-medium text-gray-700">{{ str_replace('_', ' ', ucfirst($key)) }}:</dt>
+                                                    <dd>{{ is_scalar($value) ? $value : json_encode($value) }}</dd>
+                                                </div>
+                                            @endif
+                                        @endforeach
+                                    </dl>
+                                @endif
                             </li>
                         @endforeach
                     </ul>

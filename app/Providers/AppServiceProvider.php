@@ -13,7 +13,7 @@ class AppServiceProvider extends ServiceProvider
 {
     public function register(): void
     {
-        $this->app->singleton(CellulantApiClient::class, fn () => CellulantApiClient::forCurrent());
+        $this->app->bind(CellulantApiClient::class, fn () => CellulantApiClient::forCurrent());
         $this->app->bind(PaymentProviderInterface::class, CellulantProvider::class);
     }
 

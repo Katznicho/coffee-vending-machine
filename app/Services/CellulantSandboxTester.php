@@ -5,6 +5,8 @@ namespace App\Services;
 use App\Models\CellulantSetting;
 use App\Services\PaymentProviders\CellulantApiClient;
 use Illuminate\Http\Client\Response;
+use Illuminate\Support\Str;
+use RuntimeException;
 use Throwable;
 
 class CellulantSandboxTester
@@ -113,12 +115,13 @@ class CellulantSandboxTester
 
             if (! $response->successful() || ! data_get($body, 'success')) {
                 throw new CellulantSandboxTestException(
-                    'Payment could not be initiated. Verify the phone number and '.$this->walletLabel($msisdn).'.',
+                    $this->apiErrorMessage($response, $body, 'Payment initiation failed.'),
                     [
+                        'http_status' => $response->status(),
                         'phone' => $msisdn,
                         'payer' => $payerClientCode,
                         'amount' => number_format($testAmount).' UGX',
-                        'response' => (string) (data_get($body, 'message') ?? 'Request failed'),
+                        'response' => $body !== [] ? $body : ['raw' => $response->body()],
                     ]
                 );
             }
@@ -175,7 +178,37 @@ class CellulantSandboxTester
 
     protected function apiErrorMessage(Response $response, array $body, string $fallback): string
     {
-        return (string) (data_get($body, 'message') ?? $fallback);
+        $parts = array_filter([
+            data_get($body, 'message'),
+            data_get($body, 'statusDescription'),
+            data_get($body, 'data.message'),
+            data_get($body, 'error'),
+            data_get($body, 'error_description'),
+        ], fn ($value) => filled($value));
+
+        $errors = data_get($body, 'errors');
+
+        if (is_array($errors) && $errors !== []) {
+            $parts[] = collect($errors)->flatten()->filter()->implode('; ');
+        }
+
+        $message = $parts !== []
+            ? implode(' — ', array_unique(array_map('strval', $parts)))
+            : $fallback;
+
+        $statusCode = data_get($body, 'statusCode');
+
+        if ($statusCode) {
+            $message = "[{$statusCode}] {$message}";
+        } elseif ($response->status() >= 400) {
+            $message = "[HTTP {$response->status()}] {$message}";
+        }
+
+        if ($message === $fallback && $response->body() !== '' && $body === []) {
+            $message = "[HTTP {$response->status()}] ".Str::limit($response->body(), 300);
+        }
+
+        return $message;
     }
 
     protected function assertValidUgandaMsisdn(string $msisdn): void

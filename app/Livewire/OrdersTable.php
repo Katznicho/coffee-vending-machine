@@ -3,6 +3,8 @@
 namespace App\Livewire;
 
 use App\Models\Order;
+use App\Services\PaymentProviders\PaymentProviderInterface;
+use Filament\Actions\Action;
 use Filament\Actions\Concerns\InteractsWithActions;
 use Filament\Actions\Contracts\HasActions;
 use Filament\Schemas\Concerns\InteractsWithSchemas;
@@ -97,6 +99,22 @@ class OrdersTable extends Component implements HasActions, HasSchemas, HasTable
                         'success' => 'Success',
                         'failed' => 'Failed',
                     ]),
+            ])
+            ->recordActions([
+                Action::make('checkStatus')
+                    ->label('Check status')
+                    ->icon('heroicon-o-arrow-path')
+                    ->visible(fn (Order $record): bool => in_array($record->payment_status, ['pending', 'failed'], true))
+                    ->action(function (Order $record): void {
+                        $provider = app(PaymentProviderInterface::class);
+                        $provider->refreshPaymentStatus($record);
+                    })
+                    ->successNotificationTitle('Cellulant status checked')
+                    ->after(fn () => $this->dispatch('$refresh')),
+                Action::make('view')
+                    ->label('View')
+                    ->url(fn (Order $record): string => route('orders.show', $record))
+                    ->icon('heroicon-o-eye'),
             ])
             ->defaultSort('created_at', 'desc')
             ->searchable()

@@ -88,7 +88,8 @@ test('payment test headline separates connection from payment failure', function
     expect($results['connectivity_passed'])->toBeTrue()
         ->and($results['payment_test_passed'])->toBeFalse()
         ->and($results['headline'])->toBe('Connection OK. Payment prompt failed.')
-        ->and($results['steps'][3]['message'])->toBe('Payment could not be initiated. Verify the phone number and MTN MoMo wallet.');
+        ->and($results['steps'][3]['message'])->toBe('[400] We are unable to process your request at this time, please try again later.')
+        ->and($results['steps'][3]['details']['response']['message'])->toBe('We are unable to process your request at this time, please try again later.');
 });
 
 test('payment test uses airtel money wording for airtel numbers', function () {
@@ -120,7 +121,7 @@ test('payment test uses airtel money wording for airtel numbers', function () {
 
     $results = app(CellulantSandboxTester::class)->runPaymentTest('0759983853', 982);
 
-    expect($results['steps'][3]['message'])->toBe('Payment could not be initiated. Verify the phone number and Airtel Money wallet.');
+    expect($results['steps'][3]['message'])->toBe('[400] We are unable to process your request at this time, please try again later.');
 });
 
 test('payment test succeeds when initiate payment succeeds', function () {
