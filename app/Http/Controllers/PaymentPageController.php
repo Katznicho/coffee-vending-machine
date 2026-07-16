@@ -43,7 +43,7 @@ class PaymentPageController extends Controller
 
         if ($payment->status === 'failed') {
             return back()->withErrors([
-                'phone_number' => 'Unable to start payment. Please try again.',
+                'phone_number' => 'Unable to start payment. Please try again in a moment.',
             ]);
         }
 

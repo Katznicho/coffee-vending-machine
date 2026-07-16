@@ -38,6 +38,10 @@
                         @if($payment->transaction_id)
                             <p class="mt-1"><span class="text-gray-500">Merchant txn:</span> <span class="font-mono">{{ $payment->transaction_id }}</span></p>
                         @endif
+                        @if($payment->provider_response)
+                            <p class="mt-3 text-xs font-medium uppercase tracking-wide text-gray-500">Cellulant response</p>
+                            <pre class="mt-1 overflow-x-auto rounded bg-white p-3 font-mono text-xs text-gray-800">{{ json_encode($payment->provider_response, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES) }}</pre>
+                        @endif
                     </div>
                 @empty
                     <p class="text-sm text-gray-500">No payment attempts yet.</p>

@@ -5,6 +5,7 @@ namespace App\Console\Commands;
 use App\Models\Order;
 use App\Services\PaymentProviders\PaymentProviderInterface;
 use Illuminate\Console\Command;
+use Illuminate\Support\Facades\Log;
 
 class SyncPendingPaymentsCommand extends Command
 {
@@ -36,6 +37,11 @@ class SyncPendingPaymentsCommand extends Command
             return self::SUCCESS;
         }
 
+        Log::info('Pending payment sync started', [
+            'count' => $orders->count(),
+            'limit' => $limit,
+        ]);
+
         $synced = 0;
         $paid = 0;
         $failed = 0;
@@ -50,6 +56,12 @@ class SyncPendingPaymentsCommand extends Command
 
             if ($before !== $order->payment_status) {
                 $synced++;
+                Log::info('Pending payment sync updated order', [
+                    'order_id' => $order->id,
+                    'machine_order_id' => $order->machine_order_id,
+                    'status_before' => $before,
+                    'status_after' => $order->payment_status,
+                ]);
             }
 
             match ($order->payment_status) {
@@ -60,14 +72,24 @@ class SyncPendingPaymentsCommand extends Command
             };
         }
 
-        $this->info(sprintf(
+        $summary = sprintf(
             'Checked %d pending order(s): %d updated, %d paid, %d failed, %d expired.',
             $orders->count(),
             $synced,
             $paid,
             $failed,
             $expired,
-        ));
+        );
+
+        $this->info($summary);
+
+        Log::info('Pending payment sync finished', [
+            'checked' => $orders->count(),
+            'updated' => $synced,
+            'paid' => $paid,
+            'failed' => $failed,
+            'expired' => $expired,
+        ]);
 
         return self::SUCCESS;
     }

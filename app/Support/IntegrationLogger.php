@@ -4,12 +4,13 @@ namespace App\Support;
 
 use App\Models\IntegrationLog;
 use App\Models\Order;
+use Illuminate\Support\Facades\Log;
 
 class IntegrationLogger
 {
     public static function log(array $attributes): IntegrationLog
     {
-        return IntegrationLog::create([
+        $record = IntegrationLog::create([
             'direction' => $attributes['direction'],
             'channel' => $attributes['channel'],
             'event' => $attributes['event'],
@@ -31,6 +32,26 @@ class IntegrationLogger
                 ? static::sanitize($attributes['response_payload'])
                 : null,
         ]);
+
+        $level = ($attributes['success'] ?? false) ? 'info' : 'warning';
+
+        Log::{$level}(sprintf(
+            'Integration [%s/%s] %s',
+            $attributes['channel'] ?? 'unknown',
+            $attributes['event'] ?? 'unknown',
+            $attributes['message'] ?? (($attributes['success'] ?? false) ? 'ok' : 'failed')
+        ), [
+            'direction' => $attributes['direction'] ?? null,
+            'order_id' => $attributes['order_id'] ?? null,
+            'reference' => $attributes['reference'] ?? null,
+            'machine_id' => $attributes['machine_id'] ?? null,
+            'http_status' => $attributes['http_status'] ?? null,
+            'duration_ms' => $attributes['duration_ms'] ?? null,
+            'url' => $attributes['url'] ?? null,
+            'ip_address' => $attributes['ip_address'] ?? null,
+        ]);
+
+        return $record;
     }
 
     public static function resolveOrderContext(?string $transactionId, ?string $machineId = null): array

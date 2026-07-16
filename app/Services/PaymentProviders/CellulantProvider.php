@@ -20,15 +20,52 @@ class CellulantProvider implements PaymentProviderInterface
         $settings = CellulantSetting::current();
         $msisdn = $this->normalizeMsisdn($phoneNumber);
         $reference = $order->machine_order_id;
+        $provider = $this->detectPayerClientCode($msisdn, $settings);
 
-        $payment = Payment::create([
-            'order_id' => $order->id,
-            'phone_number' => $msisdn,
-            'amount' => $order->amount,
-            'reference' => $reference,
-            'provider' => $this->detectPayerClientCode($msisdn, $settings),
-            'status' => 'pending',
-        ]);
+        // Reuse the existing payment row for this order/reference so pay-page
+        // retries (and machine re-submits) do not hit payments_reference_unique.
+        $payment = $order->payments()
+            ->where('reference', $reference)
+            ->latest('id')
+            ->first();
+
+        if ($payment && $payment->status === 'successful') {
+            Log::info('Cellulant payment already successful — skipping re-init', [
+                'order_id' => $order->id,
+                'payment_id' => $payment->id,
+                'reference' => $reference,
+            ]);
+
+            $order->update(['customer_phone' => $msisdn]);
+
+            return $payment;
+        }
+
+        if ($payment) {
+            $payment->update([
+                'phone_number' => $msisdn,
+                'amount' => $order->amount,
+                'provider' => $provider,
+                'status' => 'pending',
+                'transaction_id' => null,
+                'provider_response' => null,
+            ]);
+
+            Log::info('Cellulant payment row reused for retry', [
+                'order_id' => $order->id,
+                'payment_id' => $payment->id,
+                'reference' => $reference,
+            ]);
+        } else {
+            $payment = Payment::create([
+                'order_id' => $order->id,
+                'phone_number' => $msisdn,
+                'amount' => $order->amount,
+                'reference' => $reference,
+                'provider' => $provider,
+                'status' => 'pending',
+            ]);
+        }
 
         $payload = [
             'msisdn' => $msisdn,
@@ -38,36 +75,73 @@ class CellulantProvider implements PaymentProviderInterface
             'reference' => $reference,
         ];
 
-        $response = $this->client->instoreRequest(
-            'POST',
-            $settings->initiate_payment_path,
-            $payload,
-            [
-                'event' => 'initiate_payment',
+        Log::info('Cellulant initiate payment request', [
+            'order_id' => $order->id,
+            'payment_id' => $payment->id,
+            'environment' => $settings->environment,
+            'path' => $settings->initiate_payment_path,
+            'payload' => $payload,
+        ]);
+
+        try {
+            $response = $this->client->instoreRequest(
+                'POST',
+                $settings->initiate_payment_path,
+                $payload,
+                [
+                    'event' => 'initiate_payment',
+                    'order_id' => $order->id,
+                    'reference' => $reference,
+                ],
+            );
+        } catch (\Throwable $e) {
+            Log::error('Cellulant payment initiation exception', [
                 'order_id' => $order->id,
                 'reference' => $reference,
-            ],
-        );
+                'exception' => $e->getMessage(),
+            ]);
+
+            $payment->update([
+                'status' => 'failed',
+                'provider_response' => [
+                    'error' => $e->getMessage(),
+                ],
+            ]);
+
+            $order->update(['customer_phone' => $msisdn]);
+
+            return $payment->fresh();
+        }
 
         $body = $response->json() ?? [];
+        $rawBody = $body !== [] ? $body : ['raw' => substr($response->body(), 0, 2000)];
         $merchantTransactionId = data_get($body, 'data.merchantTransactionID');
+
+        Log::info('Cellulant initiate payment response', [
+            'order_id' => $order->id,
+            'payment_id' => $payment->id,
+            'reference' => $reference,
+            'http_status' => $response->status(),
+            'successful' => $response->successful(),
+            'cellulant_success' => data_get($body, 'success'),
+            'merchant_transaction_id' => $merchantTransactionId,
+            'body' => $rawBody,
+        ]);
 
         $payment->update([
             'status' => ($response->successful() && data_get($body, 'success')) ? 'processing' : 'failed',
             'transaction_id' => $merchantTransactionId
                 ? (string) $merchantTransactionId
                 : null,
-            'provider_response' => $body,
+            'provider_response' => $rawBody,
         ]);
 
         if ($payment->status === 'failed') {
             Log::warning('Cellulant payment initiation failed', [
                 'order_id' => $order->id,
-                'status' => $response->status(),
-                'body' => $body,
+                'http_status' => $response->status(),
+                'body' => $rawBody,
             ]);
-
-            $order->update(['payment_status' => 'failed']);
         }
 
         $order->update(['customer_phone' => $msisdn]);

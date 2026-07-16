@@ -34,13 +34,21 @@ class CellulantApiClient
             : 'https://instore-management.tingg.africa';
     }
 
-    public function accessToken(): string
+    public function accessToken(bool $forceRefresh = false): string
     {
+        if ($forceRefresh) {
+            CellulantSetting::clearCache();
+            $this->settings = CellulantSetting::current(fresh: true);
+        }
+
         $username = (string) $this->settings->activeUsername();
         $password = (string) $this->settings->activePassword();
 
         if ($username === '' || $password === '') {
-            throw new RuntimeException('Cellulant username and password are required.');
+            throw new RuntimeException(
+                'Cellulant username and password are required for '.$this->settings->environment.
+                '. Re-save them at /settings/cellulant.'
+            );
         }
 
         $scope = (string) ($this->settings->oauth_scope ?: 'read');
@@ -52,7 +60,7 @@ class CellulantApiClient
             $scope,
         );
 
-        if (Cache::has($cacheKey)) {
+        if (! $forceRefresh && Cache::has($cacheKey)) {
             return Cache::get($cacheKey);
         }
 
@@ -83,6 +91,7 @@ class CellulantApiClient
                 'grant_type' => 'password',
                 'client_id' => 'payments',
                 'username' => $username,
+                'environment' => $this->settings->environment,
                 'scope' => $scope,
             ],
             'response_payload' => $body,
@@ -93,7 +102,19 @@ class CellulantApiClient
                 ?? data_get($body, 'message')
                 ?? $response->body();
 
-            throw new RuntimeException('OAuth failed: '.$message);
+            // One retry with freshly loaded settings (avoids stale cached credentials).
+            if (! $forceRefresh && str_contains(strtolower((string) $message), 'invalid credentials')) {
+                Cache::forget($cacheKey);
+
+                return $this->accessToken(forceRefresh: true);
+            }
+
+            throw new RuntimeException(sprintf(
+                'OAuth failed (%s / %s): %s',
+                $this->settings->environment,
+                $username,
+                $message,
+            ));
         }
 
         $token = $response->json('access_token');

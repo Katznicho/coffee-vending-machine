@@ -37,9 +37,13 @@ class CellulantSetting extends Model
         ];
     }
 
-    public static function current(): self
+    public static function current(bool $fresh = false): self
     {
-        return Cache::remember('cellulant_settings', 300, function () {
+        if ($fresh) {
+            static::clearCache();
+        }
+
+        return Cache::remember('cellulant_settings', 60, function () {
             return static::query()->firstOrCreate([], static::defaults());
         });
     }
@@ -72,7 +76,18 @@ class CellulantSetting extends Model
 
     protected static function booted(): void
     {
-        static::saved(fn () => static::clearCache());
+        static::saved(function () {
+            static::clearCache();
+            static::forgetOauthTokens();
+        });
+    }
+
+    public static function forgetOauthTokens(): void
+    {
+        // Database/file cache drivers cannot wildcard-delete reliably; token keys
+        // include updated_at so a save already invalidates them. Still drop the
+        // settings cache so the next OAuth uses fresh credentials.
+        Cache::forget('cellulant_settings');
     }
 
     public function isSandbox(): bool
@@ -91,9 +106,11 @@ class CellulantSetting extends Model
 
     public function activeUsername(): ?string
     {
-        return $this->isSandbox()
+        $username = $this->isSandbox()
             ? $this->sandbox_username
             : $this->production_username;
+
+        return filled($username) ? trim((string) $username) : null;
     }
 
     public function activePassword(): ?string
@@ -107,9 +124,19 @@ class CellulantSetting extends Model
         }
 
         try {
-            return Crypt::decryptString($encrypted);
-        } catch (\Throwable) {
-            return $encrypted;
+            return trim(Crypt::decryptString($encrypted));
+        } catch (\Throwable $e) {
+            // Plaintext legacy value (e.g. seeded before encryption) — use as-is.
+            if (! str_starts_with((string) $encrypted, 'eyJpdiI6')) {
+                return trim((string) $encrypted);
+            }
+
+            \Illuminate\Support\Facades\Log::error('Cellulant password decrypt failed — re-save the password in settings', [
+                'environment' => $this->environment,
+                'exception' => $e->getMessage(),
+            ]);
+
+            return null;
         }
     }
 

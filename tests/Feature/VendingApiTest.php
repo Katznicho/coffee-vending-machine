@@ -65,7 +65,103 @@ function machineOrderPayload(Machine $machine, array $overrides = []): array
     ], $overrides);
 }
 
-test('create order initiates cellulant payment and returns pending', function () {
+test('create order without phone returns payment qr url', function () {
+    $payload = machineOrderPayload($this->machine, [
+        'ver' => 'v1',
+        'orderid' => 'ORD123',
+        'machid' => $this->machine->machine_id,
+        'name' => 'Cappuccino',
+        'price' => 500000,
+        'phoneNumber' => null,
+    ]);
+    unset($payload['orderId'], $payload['machineId'], $payload['product'], $payload['amount'], $payload['phoneNumber']);
+
+    $response = $this->postJson('/api/vending/create-order', $payload);
+
+    $order = Order::where('machine_order_id', 'ORD123')->first();
+
+    $response->assertOk()
+        ->assertJson([
+            'code' => '1',
+            'orderid' => 'ORD123',
+            'torderid' => $order->third_party_order_id,
+            'msg' => 'Success',
+            'twocode' => route('pay.show', $order->third_party_order_id),
+        ]);
+
+    $this->assertDatabaseHas('orders', [
+        'machine_order_id' => 'ORD123',
+        'machine_id' => 'CM001',
+        'amount' => 5000,
+        'payment_status' => 'pending',
+        'customer_phone' => null,
+    ]);
+
+    Http::assertNotSent(fn ($request) => str_contains($request->url(), 'initiateMerchantPayment'));
+});
+
+test('machine price is converted from protocol units to ugx', function () {
+    $payload = machineOrderPayload($this->machine, [
+        'ver' => 'v1',
+        'orderid' => 'ORD-SCALED-PRICE',
+        'machid' => $this->machine->machine_id,
+        'name' => 'Hot Chocolate',
+        'price' => 1100000,
+        'phoneNumber' => null,
+    ]);
+    unset($payload['orderId'], $payload['machineId'], $payload['product'], $payload['amount'], $payload['phoneNumber']);
+
+    $this->postJson('/api/vending/create-order', $payload)->assertOk();
+
+    $this->assertDatabaseHas('orders', [
+        'machine_order_id' => 'ORD-SCALED-PRICE',
+        'amount' => 11000,
+    ]);
+});
+
+test('pay page can retry payment without duplicate reference crash', function () {
+    Http::fake([
+        'accounts.sandbox.tingg.africa/*' => Http::response([
+            'token_type' => 'bearer',
+            'expires_in' => 3600,
+            'access_token' => 'test-access-token',
+        ], 200),
+        'payments-instore.sandbox.tingg.africa/initiateMerchantPayment' => Http::response([
+            'success' => true,
+            'statusCode' => 200,
+            'data' => ['merchantTransactionID' => '998877'],
+        ], 200),
+    ]);
+
+    $order = Order::create([
+        'machine_order_id' => 'ORD-RETRY-1',
+        'third_party_order_id' => 'RF-RETRY-001',
+        'machine_id' => $this->machine->machine_id,
+        'product_name' => 'Hot Chocolate',
+        'amount' => 6000,
+        'payment_status' => 'pending',
+        'dispense_status' => 'pending',
+        'expires_at' => now()->addMinutes(10),
+    ]);
+
+    Payment::create([
+        'order_id' => $order->id,
+        'phone_number' => '256706326308',
+        'amount' => 6000,
+        'reference' => 'ORD-RETRY-1',
+        'provider' => 'AIRTELUG',
+        'status' => 'failed',
+    ]);
+
+    $provider = app(\App\Services\PaymentProviders\PaymentProviderInterface::class);
+    $payment = $provider->initiateCollection($order, '0706326308');
+
+    expect($payment->status)->toBe('processing')
+        ->and($payment->reference)->toBe('ORD-RETRY-1')
+        ->and(Payment::where('reference', 'ORD-RETRY-1')->count())->toBe(1);
+});
+
+test('create order with phone initiates cellulant payment and returns pending', function () {
     $response = $this->postJson('/api/vending/create-order', machineOrderPayload($this->machine));
 
     $response->assertOk()
@@ -89,6 +185,52 @@ test('create order initiates cellulant payment and returns pending', function ()
             && $request['amount'] === 5000
             && $request['reference'] === 'ORD123';
     });
+});
+
+test('create order recycles completed order when machine reuses order id', function () {
+    $order = Order::create([
+        'machine_order_id' => 'ORD-REUSE-1',
+        'third_party_order_id' => 'RF-OLD-001',
+        'machine_id' => $this->machine->machine_id,
+        'product_name' => 'Coffee',
+        'amount' => 5000,
+        'payment_status' => 'paid',
+        'dispense_status' => 'success',
+        'paid_at' => now()->subMinute(),
+    ]);
+
+    Payment::create([
+        'order_id' => $order->id,
+        'phone_number' => '256759983853',
+        'amount' => 5000,
+        'reference' => 'ORD-REUSE-1',
+        'provider' => 'AIRTELUG',
+        'status' => 'successful',
+    ]);
+
+    $payload = machineOrderPayload($this->machine, [
+        'ver' => 'v1',
+        'orderid' => 'ORD-REUSE-1',
+        'machid' => $this->machine->machine_id,
+        'name' => 'Hot Chocolate',
+        'price' => 600000,
+        'phoneNumber' => null,
+    ]);
+    unset($payload['orderId'], $payload['machineId'], $payload['product'], $payload['amount'], $payload['phoneNumber']);
+
+    $response = $this->postJson('/api/vending/create-order', $payload)->assertOk();
+
+    $order->refresh();
+
+    expect($order->payment_status)->toBe('pending')
+        ->and($order->dispense_status)->toBe('pending')
+        ->and($order->product_name)->toBe('Hot Chocolate')
+        ->and($order->amount)->toBe(6000)
+        ->and($order->third_party_order_id)->not->toBe('RF-OLD-001')
+        ->and(Payment::where('reference', 'ORD-REUSE-1')->exists())->toBeFalse();
+
+    $response->assertJsonPath('code', '1')
+        ->assertJsonPath('orderid', 'ORD-REUSE-1');
 });
 
 test('payment status returns paid false while pending', function () {

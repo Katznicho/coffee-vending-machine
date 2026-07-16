@@ -19,11 +19,11 @@
                 <div class="rounded-lg bg-gray-50 px-4 py-3">
                     <p class="font-medium text-gray-900">Payment flow</p>
                     <ol class="mt-2 list-decimal space-y-1 pl-5 text-gray-700">
-                        <li>Customer selects a product and enters a phone number on the machine.</li>
-                        <li>Machine calls <strong>Create order</strong> — middleware initiates Cellulant and returns <code class="rounded bg-white px-1">PENDING</code>. If the same order is submitted again, middleware checks Cellulant status before responding.</li>
-                        <li>Customer approves the Mobile Money prompt on their phone.</li>
+                        <li>Customer selects a product on the machine (item, price, order ID — no phone required).</li>
+                        <li>Machine calls <strong>Create order</strong> — middleware creates the order and returns a payment URL (<code class="rounded bg-white px-1">twocode</code>) for the QR / pay page.</li>
+                        <li>Customer opens the pay page, enters their Mobile Money number, and approves the prompt.</li>
                         <li>Cellulant notifies middleware via IPN (no machine action required).</li>
-                        <li>Machine polls <strong>Payment status</strong> until <code class="rounded bg-white px-1">paid: true</code>. If IPN is delayed, middleware falls back to Cellulant payment status APIs.</li>
+                        <li>Machine polls <strong>Payment status</strong> until paid. If IPN is delayed, middleware falls back to Cellulant payment status APIs.</li>
                         <li>Machine dispenses the product, then calls <strong>Dispense result</strong>.</li>
                     </ol>
                     <div class="mt-4">
@@ -55,21 +55,25 @@
                             'title' => 'Create order',
                             'url' => $apiBaseUrl.'/create-order',
                             'request' => '{
-  "orderId": "ORD123",
-  "machineId": "00000022481",
-  "product": "Cappuccino",
-  "amount": 5000,
-  "phoneNumber": "256759983853",
+  "ver": "v1",
+  "orderid": "ORD123",
+  "machid": "00000022481",
+  "trackno": "15",
+  "name": "Cappuccino",
+  "price": "5000",
+  "channelid": "36",
   "timestamp": "20260610143000",
   "randstr": "abcd1234",
   "sign": "sha1 signature"
 }',
                             'response' => '{
-  "status": "PENDING",
-  "transactionId": "ORD123",
-  "paid": false
+  "code": "1",
+  "orderid": "ORD123",
+  "torderid": "RF-....",
+  "msg": "Success",
+  "twocode": "https://your-domain.com/pay/RF-...."
 }',
-                            'extra' => 'Duplicate requests for the same orderId check Cellulant status and may return PAID if payment completed.',
+                            'extra' => 'Phone is optional. Without it, the machine shows twocode (pay page). With phoneNumber, payment starts immediately.',
                         ],
                         [
                             'title' => 'Payment status',

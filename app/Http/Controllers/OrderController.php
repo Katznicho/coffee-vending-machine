@@ -8,6 +8,7 @@ use App\Services\PaymentProviders\PaymentProviderInterface;
 use App\Support\OrderReference;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
 use Illuminate\View\View;
 
@@ -47,12 +48,30 @@ class OrderController extends Controller
             'expires_at' => now()->addMinutes(config('vending.order_expiry_minutes', 15)),
         ]);
 
+        Log::info('Admin create order — initiating Cellulant collection', [
+            'order_id' => $order->id,
+            'machine_order_id' => $order->machine_order_id,
+            'third_party_order_id' => $order->third_party_order_id,
+            'machine_id' => $order->machine_id,
+            'amount' => $order->amount,
+            'phone' => $validated['customer_phone'],
+        ]);
+
         $payment = $paymentProvider->initiateCollection($order, $validated['customer_phone']);
+
+        Log::info('Admin create order — Cellulant result', [
+            'order_id' => $order->id,
+            'payment_id' => $payment->id,
+            'payment_status' => $payment->status,
+            'transaction_id' => $payment->transaction_id,
+            'provider' => $payment->provider,
+            'cellulant_response' => $payment->provider_response,
+        ]);
 
         if ($payment->status === 'failed') {
             return redirect()
                 ->route('orders.show', $order)
-                ->with('success', 'Order created, but the payment prompt could not be initiated. Check the IPN logs and payment details.');
+                ->with('success', 'Order created, but the payment prompt could not be initiated. Check the payment response below and laravel.log.');
         }
 
         return redirect()

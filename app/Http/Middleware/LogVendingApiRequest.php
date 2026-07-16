@@ -5,7 +5,9 @@ namespace App\Http\Middleware;
 use App\Support\IntegrationLogger;
 use Closure;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Log;
 use Symfony\Component\HttpFoundation\Response;
+use Throwable;
 
 class LogVendingApiRequest
 {
@@ -13,8 +15,38 @@ class LogVendingApiRequest
     {
         $startedAt = microtime(true);
 
-        $response = $next($request);
+        Log::info('Vending API inbound', [
+            'method' => $request->method(),
+            'path' => $request->path(),
+            'ip' => $request->ip(),
+            'user_agent' => substr((string) $request->userAgent(), 0, 200),
+            'content_type' => $request->header('Content-Type'),
+            'accept' => $request->header('Accept'),
+            'payload_keys' => array_keys($request->all()),
+        ]);
 
+        try {
+            $response = $next($request);
+        } catch (Throwable $e) {
+            Log::error('Vending API exception', [
+                'path' => $request->path(),
+                'ip' => $request->ip(),
+                'exception' => $e->getMessage(),
+                'payload_keys' => array_keys($request->all()),
+            ]);
+
+            $this->persistLog($request, null, $startedAt, $e);
+
+            throw $e;
+        }
+
+        $this->persistLog($request, $response, $startedAt);
+
+        return $response;
+    }
+
+    protected function persistLog(Request $request, ?Response $response, float $startedAt, ?Throwable $exception = null): void
+    {
         $transactionId = $request->input('transactionId')
             ?? $request->input('orderId')
             ?? $request->input('orderid');
@@ -29,10 +61,17 @@ class LogVendingApiRequest
 
         $responseData = null;
 
-        try {
-            $responseData = json_decode($response->getContent(), true, 512, JSON_THROW_ON_ERROR);
-        } catch (\Throwable) {
-            $responseData = ['raw' => substr((string) $response->getContent(), 0, 2000)];
+        if ($response !== null) {
+            try {
+                $responseData = json_decode($response->getContent(), true, 512, JSON_THROW_ON_ERROR);
+            } catch (Throwable) {
+                $responseData = ['raw' => substr((string) $response->getContent(), 0, 2000)];
+            }
+        } elseif ($exception !== null) {
+            $responseData = [
+                'exception' => class_basename($exception),
+                'message' => $exception->getMessage(),
+            ];
         }
 
         IntegrationLogger::log([
@@ -44,16 +83,15 @@ class LogVendingApiRequest
             'machine_id' => $context['machine_id'],
             'http_method' => $request->method(),
             'url' => $request->fullUrl(),
-            'http_status' => $response->getStatusCode(),
-            'success' => $response->isSuccessful(),
+            'http_status' => $response?->getStatusCode() ?? 500,
+            'success' => $response?->isSuccessful() ?? false,
             'duration_ms' => (int) round((microtime(true) - $startedAt) * 1000),
             'ip_address' => $request->ip(),
-            'message' => is_array($responseData) ? (data_get($responseData, 'message') ?? data_get($responseData, 'status')) : null,
+            'message' => $exception?->getMessage()
+                ?? (is_array($responseData) ? (data_get($responseData, 'message') ?? data_get($responseData, 'status')) : null),
             'request_payload' => $request->all(),
             'response_payload' => $responseData,
         ]);
-
-        return $response;
     }
 
     protected function eventFromPath(string $path): string

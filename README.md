@@ -6,13 +6,15 @@ Laravel middleware between a vending machine and Cellulant (Tingg) Mobile Money.
 
 This app sits between the vending machine and Cellulant:
 
-1. Customer selects a product on the machine and enters a phone number.
-2. Machine calls `POST /api/vending/create-order`.
-3. Middleware starts a Cellulant Mobile Money collection request.
-4. Customer approves the MTN or Airtel prompt on their phone.
+1. Customer selects a product on the machine (item, price, order ID).
+2. Machine calls `POST /api/vending/create-order` (no phone required).
+3. Middleware creates the order and returns a payment URL (`twocode`) for the QR / pay page.
+4. Customer opens the pay page, enters their Mobile Money number, and approves the prompt.
 5. Cellulant sends IPN to `/api/cellulant/ipn`.
 6. Machine polls `POST /api/vending/payment-status` until payment is confirmed.
 7. Machine dispenses the item and reports back to `POST /api/vending/dispense-result`.
+
+If the machine also sends a phone number on create-order, payment is started immediately and the QR step is skipped.
 
 ## Requirements
 
@@ -181,7 +183,14 @@ Configure these URLs on the vending machine:
 | Payment status | `{APP_URL}/api/vending/payment-status` |
 | Dispense result | `{APP_URL}/api/vending/dispense-result` |
 
-The current implementation expects the machine to send a phone number during order creation.
+Create-order only needs order ID, machine ID, product name, and price. Phone is optional.
+
+When the machine sends `ver=v1` (LE Machine protocol), the response includes `twocode` pointing to `{APP_URL}/pay/{torderid}` where the customer enters their phone number.
+
+The LE protocol sends `price` as the configured UGX price multiplied by 100. The
+middleware divides `price` by `VENDING_MACHINE_PRICE_DIVISOR` (default `100`)
+before storing it or sending it to Cellulant. The modern `amount` field is
+already treated as UGX and is not divided.
 
 Supported request field aliases:
 
@@ -191,7 +200,7 @@ Supported request field aliases:
 | Machine ID | `machineId`, `machid` |
 | Product name | `product`, `name` |
 | Amount | `amount`, `price` |
-| Phone number | `phoneNumber`, `phone_number`, `msisdn` |
+| Phone number (optional) | `phoneNumber`, `phone_number`, `msisdn` |
 
 ## IPN Setup
 
