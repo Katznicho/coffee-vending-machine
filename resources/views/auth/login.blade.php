@@ -17,7 +17,7 @@
                 value="{{ old('email') }}" 
                 required 
                 autofocus
-                placeholder="admin@vendormachine.test"
+                placeholder="Enter your email address"
                 class="w-full rounded-lg border-2 border-gray-200 px-3 py-2 text-base transition-colors focus:border-brand focus:outline-none"
             >
             @error('email')
@@ -33,7 +33,7 @@
                     type="password" 
                     name="password" 
                     required
-                    placeholder="password"
+                    placeholder="Enter your password"
                     class="w-full rounded-lg border-2 border-gray-200 px-3 py-2 pr-10 text-base transition-colors focus:border-brand focus:outline-none"
                 >
                 <button 
@@ -55,11 +55,12 @@
             @enderror
         </div>
         
-        <div class="mb-6">
+        <div class="mb-6 flex items-center justify-between">
             <label class="flex items-center gap-2 text-sm text-gray-600">
                 <input type="checkbox" name="remember" class="rounded border-gray-300">
                 Remember me
             </label>
+            <a href="{{ route('password.request') }}" class="text-sm font-medium text-brand hover:underline">Forgot password?</a>
         </div>
         
         <button
@@ -69,18 +70,6 @@
             Sign in
         </button>
     </form>
-
-    @if(!empty($showQuickLogin))
-        <div class="mt-8 border-t border-gray-200 pt-6">
-            <form method="POST" action="{{ route('login.quick') }}">
-                @csrf
-                <button type="submit" class="w-full rounded-lg border-2 border-brand bg-white px-3 py-2.5 text-sm font-semibold text-brand hover:bg-red-50">
-                    Quick login as admin
-                </button>
-            </form>
-            <p class="mt-3 text-center text-xs text-gray-500">admin@vendormachine.test / password</p>
-        </div>
-    @endif
 
     @push('scripts')
     <script>

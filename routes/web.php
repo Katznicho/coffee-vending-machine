@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\AccountController;
 use App\Http\Controllers\AuthController;
 use App\Http\Controllers\CellulantIpnLogController;
 use App\Http\Controllers\CellulantSettingsController;
@@ -9,6 +10,7 @@ use App\Http\Controllers\MachineController;
 use App\Http\Controllers\MachineIntegrationController;
 use App\Http\Controllers\OrderController;
 use App\Http\Controllers\PaymentPageController;
+use App\Http\Controllers\UserController;
 use Illuminate\Support\Facades\Route;
 
 Route::get('/', fn () => redirect()->route('login'))->name('home');
@@ -18,8 +20,12 @@ Route::post('/pay/{torderid}', [PaymentPageController::class, 'pay'])->name('pay
 
 Route::get('/login', [AuthController::class, 'showLogin'])->name('login');
 Route::post('/login', [AuthController::class, 'login']);
-Route::post('/login/quick', [AuthController::class, 'quickLogin'])->name('login.quick');
 Route::post('/logout', [AuthController::class, 'logout'])->name('logout');
+
+Route::get('/forgot-password', [AuthController::class, 'showForgotPassword'])->name('password.request');
+Route::post('/forgot-password', [AuthController::class, 'sendResetLink'])->name('password.email');
+Route::get('/reset-password/{token}', [AuthController::class, 'showResetPassword'])->name('password.reset');
+Route::post('/reset-password', [AuthController::class, 'resetPassword'])->name('password.update');
 
 Route::middleware(['auth', 'admin'])->group(function () {
     Route::get('/dashboard', DashboardController::class)->name('dashboard');
@@ -47,4 +53,15 @@ Route::middleware(['auth', 'admin'])->group(function () {
     Route::put('/settings/cellulant', [CellulantSettingsController::class, 'update'])->name('settings.cellulant.update');
     Route::post('/settings/cellulant/test-connectivity', [CellulantSettingsController::class, 'testConnectivity'])->name('settings.cellulant.test.connectivity');
     Route::post('/settings/cellulant/test-payment', [CellulantSettingsController::class, 'testPayment'])->name('settings.cellulant.test.payment');
+
+    Route::get('/settings/account', [AccountController::class, 'edit'])->name('settings.account.edit');
+    Route::put('/settings/account/profile', [AccountController::class, 'updateProfile'])->name('settings.account.profile');
+    Route::put('/settings/account/password', [AccountController::class, 'updatePassword'])->name('settings.account.password');
+
+    Route::get('/users', [UserController::class, 'index'])->name('users.index');
+    Route::get('/users/create', [UserController::class, 'create'])->name('users.create');
+    Route::post('/users', [UserController::class, 'store'])->name('users.store');
+    Route::get('/users/{user}/edit', [UserController::class, 'edit'])->name('users.edit');
+    Route::put('/users/{user}', [UserController::class, 'update'])->name('users.update');
+    Route::delete('/users/{user}', [UserController::class, 'destroy'])->name('users.destroy');
 });

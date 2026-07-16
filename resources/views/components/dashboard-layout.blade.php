@@ -30,6 +30,12 @@
                 <a href="{{ route('integration-logs.index') }}" class="block rounded-lg py-2 pl-6 pr-3 text-sm font-medium {{ request()->routeIs('integration-logs.*') ? 'bg-white/20' : 'hover:bg-white/10' }}">
                     API logs
                 </a>
+                <a href="{{ route('users.index') }}" class="block rounded-lg px-3 py-2 text-sm font-medium {{ request()->routeIs('users.*') ? 'bg-white/20' : 'hover:bg-white/10' }}">
+                    Users
+                </a>
+                <a href="{{ route('settings.account.edit') }}" class="block rounded-lg px-3 py-2 text-sm font-medium {{ request()->routeIs('settings.account.*') ? 'bg-white/20' : 'hover:bg-white/10' }}">
+                    Account
+                </a>
             </nav>
 
             <form method="POST" action="{{ route('logout') }}" class="mt-8">
